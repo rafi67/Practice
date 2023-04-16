@@ -1,0 +1,259 @@
+﻿@{
+    ViewData["Title"] = "Single";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h1>Single</h1>
+
+
+@Html.Partial("PartialView")
+<div id="form">
+    <h2>Sales Form</h2>
+    <a href="javascript:void(0)" onclick="switchView('list')">Go To List</a>
+    <form>
+        <div>
+            <input type="hidden" id="SaleId" />
+            <label>Create Date</label><br />
+            <input type="date" id="CreateDate" /><br />
+            <input type="text" id="CustomerName" placeholder="Customer Name"><br />
+            <input type="text" id="CustomerAddress" placeholder="Customer Address" /><br />
+            <label>Gender</label><br />
+            <input type="radio" id="Male" name="Gender"/>Male<br />
+            <input type="radio" id="Female" name="Gender"/>Female <br />
+            <button type="button" id="btnAdd" onclick="add();" class="btn btn-success">Add</button><br />
+            <button type="button" id="btnUpdate" onclick="update();" class="btn btn-primary">Update</button><br />
+            <button type="button" id="btnReset" onclick="resetSaleMaster();" class="btn btn-default">Reset</button><br />
+            <input type="text" id="ProductName" placeholder="Product Name" /><br />
+            <input type="text" id="Price" placeholder="Price" /><br />
+            <button type="button" onclick="addItem();" class="btn btn-info">Add Item</button><br />
+            <table id="tSD"></table>
+        </div>
+    </form>
+</div>
+<script>
+    switchView('list');
+    document.addEventListener('DOMContentLoaded', get, false);
+    function get() {
+        $.ajax({
+            type: "GET",
+            url: '/Sales/Get',
+            dataType: "json",
+            contentType: "application/json; charset=utf-8",
+            success: function (res) {
+                loadListSaleMaster(res);
+            },
+            error: function () {
+                alert("Error while loading data");
+            }
+        });
+    }
+
+    function getById(id) {
+        $.ajax({
+            type: "GET",
+            url: '/Sales/GetById?id=' + id,
+            dataType: "json",
+            contentType: "application/json; charset=utf-8",
+            success: function (res) {
+                loadForm(res)
+            },
+            error: function () {
+                alert("Error while adding data");
+            }
+        });
+    }
+    function switchView(viewName) {
+        if (viewName == 'form') {
+            document.getElementById("list").style.display = "none";
+            document.getElementById("form").style.display = "";
+            document.getElementById('btnAdd').style.visibility = 'visible';
+            document.getElementById('btnUpdate').style.visibility = 'hidden';
+        } else {
+            document.getElementById("list").style.display = "";
+            document.getElementById("form").style.display = "none";
+        }
+    }
+    function loadListSaleMaster(list) {
+        var TRs = '<tr><th>Create Date</th><th>Customer Name</th><th>Address</th><th>Gender</th></tr>';
+        for (var i = 0; i < list.length; i++) {
+            var tr = '<tr><td>'+list[i].createDate+'</td>' + '<td>' + list[i].customerName + '</td>' + '</td><td>'+list[i].customerAddress+'</td><td>'+list[i].gender+'</td><td><a href="javascript:void(0)" onclick="edit(' + list[i].saleId + ')">Edit</a> | <a href="javascript:void(0)" onclick="remove(' + list[i].saleId + ')">Remove</a></td></tr>';
+            TRs += tr;
+        }
+        document.getElementById('tSM').innerHTML = TRs;
+    }
+
+    function loadForm(model) {
+        document.getElementById('SaleId').value = model.saleId;
+        var dateString = model.createDate;
+        var date = new Date(dateString);
+        var year = date.getFullYear();
+        var month = ("0" + (date.getMonth() + 1)).slice(-2);
+        var day = ("0" + date.getDate()).slice(-2);
+        var d =  year+"-"+month+"-"+day;
+        document.getElementById('CreateDate').value = d;
+        document.getElementById('CustomerName').value = model.customerName;
+        document.getElementById('CustomerAddress').value = model.customerAddress;
+        if(model.gender=='Male') document.getElementById('Male').checked = true;
+        else document.getElementById('Female').checked = true;
+        listSaleDetail = [];
+        for (var i = 0; i < model.saleDetails.length; i++) {
+            listSaleDetail.push(model.saleDetails[i]);
+        }
+        loadListSaleDetail(listSaleDetail);
+    }
+    function loadListSaleDetail(list){
+        var TRs = '<tr><th>Product Name</th><th>Price</th></tr>';
+        for (var i = 0; i < list.length; i++) {
+            var tr = '<tr><td>' + list[i].productName + '</td><td>'+list[i].price+'</td><td><a href="javascript:void(0)" onclick="removeItem(' + i + ')">Remove</a></td></tr>';
+            TRs += tr;
+        }
+        document.getElementById('tSD').innerHTML = TRs;
+    }
+    function removeItem(index) {
+        listSaleDetail.splice(index, 1);
+        loadListSaleDetail(listSaleDetail);
+    }
+    function remove(id) {
+        var isConfirm = confirm('Are you sure to remove?');
+        if (isConfirm) {
+            $.ajax({
+                type: "POST",
+                url: '/Sales/Remove?id=' + id,
+                data: null,
+                dataType: "json",
+                contentType: "application/json; charset=utf-8",
+                success: function (res) {
+                    if (res.resstate) {
+                        alert(res.message);
+                        resetSaleMaster();
+                        switchView('list');
+                        get();
+                    } else {
+                        alert(res.message);
+                    }
+                },
+                error: function () {
+                    alert("Error while deleting data");
+                }
+            });
+        }
+    }
+    function edit(id) {
+        switchView('form');
+        document.getElementById('btnAdd').style.visibility = 'hidden';
+        document.getElementById('btnUpdate').style.visibility = 'visible';
+        getById(id);
+    }
+    var listSaleDetail = [];
+    function addItem() {
+        var sd = {
+            saleDetailId: 0,
+            saleId: 0,
+            productName: '',
+            price: 0.0
+        };
+        sd.productName = document.getElementById('ProductName').value;
+        sd.price = parseFloat(document.getElementById('Price').value);
+        sd.saleId = parseInt(document.getElementById('SaleId').value);
+        listSaleDetail.push(sd);
+        loadListSaleDetail(listSaleDetail);
+        resetSaleDetail();
+    }
+    function update() {
+        var sm = {
+            SaleId: 0,
+            CreateDate: '',
+            CustomerName: '',
+            CustomerAddress: '',
+            Gender: '',
+            SaleDetails: []
+        };
+        sm.CreateDate = document.getElementById('CreateDate').value;
+        sm.CustomerName = document.getElementById('CustomerName').value;
+        sm.CustomerAddress = document.getElementById('CustomerAddress').value;
+        sm.Gender = document.getElementById('Male').checked ? 'Male' : 'Female';
+        sm.SaleId = document.getElementById('SaleId').value;
+        sm.SaleDetails = listSaleDetail;
+        var strJson = JSON.stringify(sm);
+        $.ajax({
+            type: "POST",
+            url: '/Sales/Update',
+            data: strJson,
+            dataType: "json",
+            contentType: "application/json; charset=utf-8",
+            async: true,
+            processData: false,
+            cache: false,
+            success: function (res) {
+                if (res.resstate) {
+                    alert(res.message);
+                    resetSaleMaster();
+                    switchView('list');
+                    get();
+                } else {
+                    alert(res.message);
+                }
+            },
+            error: function () {
+                alert("Error while adding data");
+            }
+        });
+    }
+
+    function resetSaleMaster() {
+        document.getElementById('btnAdd').style.visibility = 'visible';
+        document.getElementById('btnUpdate').style.visibility = 'hidden';
+        document.getElementById('CreateDate').value = '';
+        document.getElementById('CustomerName').value = '';
+        document.getElementById('CustomerAddress').value = '';
+        document.getElementById('Male').checked = false;
+        document.getElementById('Female').checked = false;
+        document.getElementById('SaleId').value = 0;
+        listSaleDetail = [];
+        loadListSaleDetail(listSaleDetail);
+        resetSaleDetail();
+    }
+
+    function resetSaleDetail() {
+        document.getElementById('ProductName').value = '';
+        document.getElementById('Price').value = '';
+    }
+
+    function add() {
+        var sm = {
+            SaleId: 0,
+            CreateDate: '',
+            CustomerName: '',
+            CustomerAddress: '',
+            Gender: '',
+            SaleDetails: []
+        };
+        sm.CreateDate = document.getElementById('CreateDate').value;
+        sm.CustomerName = document.getElementById('CustomerName').value;
+        sm.CustomerAddress = document.getElementById('CustomerAddress').value;
+        sm.Gender = document.getElementById('Male').checked ? 'Male' : 'Female';
+        sm.SaleId = document.getElementById('SaleId').value;
+        sm.SaleDetails = listSaleDetail;
+        var strJson = JSON.stringify(sm);
+        $.ajax({
+            type: "POST",
+            url: '/Sales/Add',
+            data: strJson,
+            dataType: "json",
+            contentType: "application/json; charset=utf-8",
+            success: function (res) {
+                if (res.resstate) {
+                    alert(res.message);
+                    resetSaleMaster();
+                    switchView('list');
+                    get();
+                } else {
+                    alert(res.message);
+                }
+            },
+            error: function () {
+                alert("Error while adding data");
+            }
+        });
+    }
+</script>
